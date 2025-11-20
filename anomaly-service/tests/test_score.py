@@ -17,8 +17,28 @@ def test_score_endpoint_returns_placeholder_score():
     response = client.post("/score", json=payload)
     assert response.status_code == 200
     body = response.json()
-    assert body["score"] == 0.5
+    assert 0.0 <= body["score"] <= 1.0
     assert body["model"] == "placeholder-v0"
+    assert "threshold" in body
+    assert isinstance(body["is_anomaly"], bool)
+
+
+def test_score_is_deterministic_for_same_payload():
+    payload = {"event": {"foo": "bar", "value": 10}}
+    scores = []
+    for _ in range(3):
+        resp = client.post("/score", json=payload)
+        assert resp.status_code == 200
+        scores.append(resp.json()["score"])
+    assert len(set(scores)) == 1
+
+
+def test_threshold_override():
+    payload = {"event": {"key": "value"}, "threshold": 0.0}
+    resp = client.post("/score", json=payload)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_anomaly"] is True
 
 
 def test_models_endpoint_lists_models():

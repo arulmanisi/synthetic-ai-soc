@@ -12,6 +12,15 @@ class Settings(BaseSettings):
     port: int = Field(8001, description="Bind port.")
     log_level: str = Field("INFO", description="Logging level.")
     default_model: str = Field("placeholder-v0", description="Default model name.")
+    default_threshold: float = Field(
+        0.8,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for classifying an event as anomalous.",
+    )
+    random_seed: int | None = Field(
+        42, description="Optional seed to keep dev scores deterministic."
+    )
 
     model_config = SettingsConfigDict(env_prefix="ANOMALY_", env_file=".env")
 

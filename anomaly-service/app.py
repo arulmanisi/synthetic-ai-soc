@@ -32,9 +32,11 @@ def create_app() -> FastAPI:
 
     @app.post("/score", response_model=ScoreResponse)
     def score(
-        request: ScoreRequest, pipeline: ScoringPipeline = Depends(get_pipeline)
+        request: ScoreRequest,
+        pipeline: ScoringPipeline = Depends(get_pipeline),
+        settings: Settings = Depends(get_settings),
     ) -> ScoreResponse:
-        return pipeline.score(request)
+        return pipeline.score(request, default_threshold=settings.default_threshold)
 
     return app
 

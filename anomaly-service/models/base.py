@@ -9,6 +9,15 @@ class ScoreRequest(BaseModel):
     event: Dict[str, Any] = Field(
         default_factory=dict, description="Arbitrary event payload to score."
     )
+    model: str | None = Field(
+        None, description="Optional model override; defaults to service config."
+    )
+    threshold: float | None = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Optional threshold override; defaults to service config.",
+    )
 
 
 class ScoreResponse(BaseModel):
@@ -16,6 +25,8 @@ class ScoreResponse(BaseModel):
 
     score: float = Field(..., ge=0.0, le=1.0, description="Anomaly score.")
     model: str = Field(..., description="Model that produced the score.")
+    threshold: float = Field(..., ge=0.0, le=1.0, description="Decision threshold.")
+    is_anomaly: bool = Field(..., description="True when score >= threshold.")
 
 
 class ModelListResponse(BaseModel):
