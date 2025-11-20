@@ -1,6 +1,7 @@
 from functools import lru_cache
 
 from fastapi import Depends, FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from config import Settings, get_settings
 from models.base import ModelListResponse, ScoreRequest, ScoreResponse
@@ -21,6 +22,9 @@ def get_pipeline(
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name)
+
+    # Instrument Prometheus metrics for request latency, count, and exception tracking.
+    Instrumentator().instrument(app).expose(app)
 
     @app.get("/health")
     def health() -> dict[str, str]:
