@@ -1,13 +1,11 @@
 # Anomaly Service
 
-FastAPI microservice for UEBA-style anomaly scoring in the Synthetic AI SOC platform.
+FastAPI microservice scaffold for anomaly scoring in the Synthetic AI SOC platform.
 
 ## Endpoints
-- `GET /health/live` – Liveness probe.
-- `GET /health/ready` – Readiness probe; reports model readiness/version.
-- `GET /metadata` – Basic service metadata.
-- `POST /v1/score` – Score a single event payload.
-- `POST /v1/score/batch` – Score multiple events in one request.
+- `GET /health` – Liveness.
+- `GET /models` – List available model names.
+- `POST /score` – Score a JSON event (placeholder returns 0.5).
 
 ## Running locally
 ```bash
@@ -20,9 +18,13 @@ python app.py
 ## Environment
 - `ANOMALY_HOST` (default `0.0.0.0`)
 - `ANOMALY_PORT` (default `8001`)
-- `ANOMALY_MODEL_PATH` (default `models/dev_isolation_forest.pkl`)
-- `ANOMALY_FEATURE_STORE_URL` (default `redis://feature-store:6379`)
-- `ANOMALY_ALERT_STORE_URL` (default `http://alert-store:8000`)
 - `ANOMALY_LOG_LEVEL` (default `INFO`)
+- `ANOMALY_DEFAULT_MODEL` (default `placeholder-v0`)
 
-The service currently uses a placeholder scorer; wire in a real model by implementing `AnomalyScoringService`.
+## Tests
+```bash
+cd anomaly-service
+pytest
+```
+
+The scoring pipeline in `pipelines/scorer.py` is a placeholder; replace with a real model when ready.
