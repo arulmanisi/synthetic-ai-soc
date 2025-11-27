@@ -1,4 +1,5 @@
 import json
+import os
 import random
 import sys
 import time
@@ -9,6 +10,7 @@ USERS = ["alice", "bob", "charlie", "dana", "eve"]
 APPS = ["crm", "erp", "vpn", "sshd", "s3"]
 HOSTS = ["host-1", "host-2", "host-3"]
 ACTIONS = ["login", "logout", "file_access", "upload", "download"]
+ANOMALY_RATE_DEFAULT = 0.2
 
 
 def generate_event() -> Dict:
@@ -22,15 +24,41 @@ def generate_event() -> Dict:
         "bytes": random.randint(100, 50000),
         "success": random.random() > 0.05,
     }
-    # Inject simple anomalies
-    if random.random() < 0.05:
-        event["bytes"] = random.randint(200000, 500000)
+    # Inject anomalies more frequently to stress detection
+    if random.random() < current_anomaly_rate():
+        event = inject_anomaly(event)
+    return event
+
+
+def current_anomaly_rate() -> float:
+    try:
+        env_rate = float(os.getenv("ANOMALY_RATE", ANOMALY_RATE_DEFAULT))
+    except ValueError:
+        env_rate = ANOMALY_RATE_DEFAULT
+    return max(0.0, min(1.0, env_rate))
+
+
+def inject_anomaly(event: Dict) -> Dict:
+    anomaly_type = random.choice(["exfil", "bruteforce", "rare_app"])
+    if anomaly_type == "exfil":
+        event["bytes"] = random.randint(300_000, 800_000)
         event["action"] = "exfiltration"
+        event["success"] = True
+    elif anomaly_type == "bruteforce":
+        event["action"] = "login"
+        event["success"] = False
+        event["attempts"] = random.randint(5, 20)
+    else:
+        event["app"] = "admin-console"
+        event["action"] = "access_denied"
+        event["bytes"] = random.randint(1_000, 3_000)
     return event
 
 
 def main() -> None:
     delay = float(sys.argv[1]) if len(sys.argv) > 1 else 0.5
+    if len(sys.argv) > 2:
+        os.environ["ANOMALY_RATE"] = sys.argv[2]
     while True:
         evt = generate_event()
         sys.stdout.write(json.dumps(evt) + "\n")
