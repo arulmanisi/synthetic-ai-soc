@@ -68,6 +68,12 @@ docker-compose up --build
 # In a separate terminal:
 python simulator/sim_generator.py | python ingestion/producer/send_to_kafka.py
 
+# Simple local scoring pipeline (no Kafka)
+# Terminal 1: start anomaly service (from anomaly-service/)
+#   uvicorn app:app --reload --port 8001
+# Terminal 2: run simulator and ingestion->scoring
+#   python simulator/sim_generator.py | python ingestion/ingest_and_score.py
+
 
 Then open:
 
