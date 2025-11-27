@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     host: str = Field("0.0.0.0", description="Bind host.")
     port: int = Field(8001, description="Bind port.")
     log_level: str = Field("INFO", description="Logging level.")
-    default_model: str = Field("placeholder-v0", description="Default model name.")
+    default_model: str = Field("isolation-forest", description="Default model name.")
     default_threshold: float = Field(
         0.8,
         ge=0.0,

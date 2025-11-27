@@ -18,7 +18,7 @@ def test_score_endpoint_returns_placeholder_score():
     assert response.status_code == 200
     body = response.json()
     assert 0.0 <= body["score"] <= 1.0
-    assert body["model"] == "placeholder-v0"
+    assert body["model"] == "isolation-forest"
     assert "threshold" in body
     assert isinstance(body["is_anomaly"], bool)
 
@@ -46,4 +46,5 @@ def test_models_endpoint_lists_models():
     assert response.status_code == 200
     body = response.json()
     assert "models" in body
-    assert "placeholder-v0" in body["models"]
+    assert "isolation-forest" in body["models"]
+    assert "lof" in body["models"]
