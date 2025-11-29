@@ -49,7 +49,7 @@ class IsolationForestModel(AnomalyModel):
 
     def __init__(
         self,
-        contamination: float = 0.1,
+        contamination: float = 0.2,
         n_estimators: int = 100,
         random_state: int | None = 42,
     ) -> None:
@@ -86,7 +86,7 @@ class IsolationForestModel(AnomalyModel):
 class LOFModel(AnomalyModel):
     """Local Outlier Factor scorer using a baseline fit."""
 
-    def __init__(self, contamination: float = 0.1, random_state: int | None = 42) -> None:
+    def __init__(self, contamination: float = 0.2, random_state: int | None = 42) -> None:
         self.name = "lof"
         self._contamination = contamination
         self._random_state = random_state

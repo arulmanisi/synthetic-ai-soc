@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     log_level: str = Field("INFO", description="Logging level.")
     default_model: str = Field("isolation-forest", description="Default model name.")
     default_threshold: float = Field(
-        0.8,
+        0.5,
         ge=0.0,
         le=1.0,
         description="Threshold for classifying an event as anomalous.",
