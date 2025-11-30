@@ -1,0 +1,12 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY ingestion/ingest_and_score.py .
+COPY ingestion/anomalies.db .
+# Note: In a real setup, we wouldn't copy the DB, but mount a volume or use a real DB.
+# For MVP, we'll let it create a new one or use the copied one.
+
+RUN pip install httpx
+
+CMD ["python", "-u", "ingest_and_score.py"]

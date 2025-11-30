@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # 1. Simulator: Generates synthetic logs
+  simulator:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.simulator
+    container_name: soc-simulator
+    environment:
+      - ANOMALY_RATE=0.2
+    depends_on:
+      - ingestion
+
+  # 2. Ingestion: Consumes logs and scores them (MVP: direct pipe)
+  # For MVP, we might run this as a script that pipes simulator output to scoring
+  # But to keep it clean, let's have a service that listens or polls.
+  # Actually, the quickstart uses a pipe. Let's make a service that wraps the pipe.
+  ingestion:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.ingestion
+    container_name: soc-ingestion
+    depends_on:
+      - anomaly-service
+      - alert-store
+    environment:
+      - ANOMALY_SERVICE_URL=http://anomaly-service:8001/score
+      - ALERT_STORE_URL=http://alert-store:8002/alerts/
+
+  # 3. Anomaly Service: ML scoring API
+  anomaly-service:
+    build:
+      context: ./anomaly-service
+      dockerfile: Dockerfile
+    container_name: soc-anomaly-service
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+
+  # 4. Alert Store: Stores alerts
+  alert-store:
+    build:
+      context: ./alert-store
+      dockerfile: Dockerfile
+    container_name: soc-alert-store
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./alert_data:/app/data
+
+  # 5. UI: React Dashboard
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: soc-ui
+    ports:
+      - "3000:3000"
+    depends_on:
+      - alert-store
+
+  # 6. LLM Reasoner: Generates explanations (Placeholder for now)
+  llm-reasoner:
+    build:
+      context: ./llm-reasoner
+      dockerfile: Dockerfile
+    container_name: soc-llm-reasoner
+    ports:
+      - "8003:8003"

@@ -1,0 +1,66 @@
+:root {
+  --bg-color: #1a1a1a;
+  --text-color: #e0e0e0;
+  --card-bg: #2d2d2d;
+  --accent-color: #646cff;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+header {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 1rem;
+}
+
+.alert-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.alert-card {
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border-left: 4px solid transparent;
+}
+
+.alert-card.critical { border-left-color: #ff4444; }
+.alert-card.high { border-left-color: #ff8800; }
+.alert-card.medium { border-left-color: #ffcc00; }
+.alert-card.low { border-left-color: #00cc00; }
+
+.alert-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.severity-badge {
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+h3 {
+  margin: 0 0 1rem 0;
+}
+
+.alert-details {
+  display: flex;
+  gap: 2rem;
+  font-size: 0.9rem;
+  color: #aaa;
+}
