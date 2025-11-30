@@ -1,11 +1,18 @@
+import json
+import logging
+from typing import Any, Dict, Optional
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any
 
-from models.triage import TriageRequest, TriageResponse, SeverityLevel, MitreAttack
+from models.triage import MitreAttack, SeverityLevel, TriageRequest, TriageResponse
 from prompts.triage_prompt import build_triage_prompt, get_mitre_hints
+from llm_client import LLMClient, build_llm_client
 
 app = FastAPI(title="LLM Reasoner")
+logger = logging.getLogger(__name__)
+
+_llm_client: Optional[LLMClient] = build_llm_client()
 
 class ExplainRequest(BaseModel):
     alert_id: int
@@ -53,13 +60,12 @@ def triage_alert(request: TriageRequest):
     For MVP, this uses rule-based logic. In production, replace with actual LLM calls.
     """
     
-    # Build the prompt (useful for real LLM integration)
     prompt = build_triage_prompt(request.event, request.anomaly_score, request.model)
-    
-    # Mock LLM response using rule-based logic
-    # In production, replace this with: llm_client.generate(prompt)
-    triage = _mock_llm_triage(request.event, request.anomaly_score)
-    
+
+    triage = _llm_triage(request.event, request.anomaly_score, prompt)
+    if triage is None:
+        triage = _mock_llm_triage(request.event, request.anomaly_score)
+
     return triage
 
 
@@ -158,6 +164,43 @@ def _mock_llm_triage(event: Dict[str, Any], anomaly_score: float) -> TriageRespo
         summary=summary,
         indicators=indicators,
         recommended_actions=actions
+    )
+
+
+def _llm_triage(event: Dict[str, Any], anomaly_score: float, prompt: str) -> Optional[TriageResponse]:
+    """Attempt to triage using an LLM; fall back to mock on error."""
+    if _llm_client is None:
+        return None
+    try:
+        raw = _llm_client.generate(prompt)
+        data = json.loads(raw)
+        return _triage_from_llm_json(data, anomaly_score, event)
+    except Exception as exc:
+        logger.warning("LLM triage failed, falling back to rule-based: %s", exc)
+        return None
+
+
+def _triage_from_llm_json(data: Dict[str, Any], anomaly_score: float, event: Dict[str, Any]) -> TriageResponse:
+    severity_val = str(data.get("severity", "low")).lower()
+    severity = {
+        "critical": SeverityLevel.CRITICAL,
+        "high": SeverityLevel.HIGH,
+        "medium": SeverityLevel.MEDIUM,
+    }.get(severity_val, SeverityLevel.LOW)
+
+    mitre_attack = MitreAttack(
+        tactics=data.get("mitre_tactics", []),
+        techniques=data.get("mitre_techniques", []),
+    )
+
+    return TriageResponse(
+        category=data.get("category", "triage"),
+        severity=severity,
+        confidence=float(data.get("confidence", anomaly_score)),
+        mitre_attack=mitre_attack,
+        summary=data.get("summary", "LLM triage result"),
+        indicators=data.get("indicators", event),
+        recommended_actions=data.get("recommended_actions", []),
     )
 
 
