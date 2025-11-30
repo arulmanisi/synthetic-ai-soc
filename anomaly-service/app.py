@@ -59,27 +59,27 @@ def create_app() -> FastAPI:
         settings: Settings = Depends(get_settings),
     ) -> dict:
         """Evaluate model on labeled test data.
-        
-        test_data: List of dicts with 'event' and 'is_anomaly' keys
+
+        test_data: List of dicts with 'event', 'is_anomaly', and optional 'model' keys.
         """
         y_true = []
         y_pred = []
         y_scores = []
-        
+
         for item in test_data:
             event = item["event"]
             true_label = item["is_anomaly"]
-            
-            # Score the event
+            model_override = item.get("model")
+
             score_result = pipeline.score(
-                ScoreRequest(event=event),
-                default_threshold=settings.default_threshold
+                ScoreRequest(event=event, model=model_override),
+                default_threshold=settings.default_threshold,
             )
-            
+
             y_true.append(1 if true_label else 0)
             y_pred.append(1 if score_result.is_anomaly else 0)
             y_scores.append(score_result.score)
-        
+
         metrics = calculate_metrics(y_true, y_pred, y_scores)
         return metrics
 

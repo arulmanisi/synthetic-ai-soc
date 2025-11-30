@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from simulator.sim_generator import generate_event, inject_anomaly
 
 
-def generate_test_dataset(n_normal=100, n_anomaly=50):
+def generate_test_dataset(n_normal=100, n_anomaly=50, model_name=None):
     """Generate a labeled test dataset."""
     test_data = []
     
@@ -18,26 +18,27 @@ def generate_test_dataset(n_normal=100, n_anomaly=50):
         event = generate_event()
         # Remove any injected anomalies from the normal set
         if "exfiltration" not in event.get("action", ""):
-            test_data.append({
-                "event": event,
-                "is_anomaly": False
-            })
+            entry = {"event": event, "is_anomaly": False}
+            if model_name:
+                entry["model"] = model_name
+            test_data.append(entry)
     
     # Generate anomalous events
     for _ in range(n_anomaly):
         event = generate_event()
         event = inject_anomaly(event)
-        test_data.append({
-            "event": event,
-            "is_anomaly": True
-        })
+        entry = {"event": event, "is_anomaly": True}
+        if model_name:
+            entry["model"] = model_name
+        test_data.append(entry)
     
     return test_data
 
 
 def benchmark_model():
     print("Generating test dataset...")
-    test_data = generate_test_dataset(n_normal=100, n_anomaly=50)
+    model_name = os.getenv("MODEL", "isolation-forest")
+    test_data = generate_test_dataset(n_normal=100, n_anomaly=50, model_name=model_name)
     print(f"Generated {len(test_data)} test events")
     
     print("\nEvaluating model...")

@@ -4,6 +4,7 @@ import numpy as np
 import joblib
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
+from sklearn.svm import OneClassSVM
 
 
 class AnomalyModel(Protocol):
@@ -142,3 +143,112 @@ class LOFModel(AnomalyModel):
         assert self._model is not None
         raw = self._model.decision_function(vector.reshape(1, -1))[0]
         return float(1 / (1 + np.exp(-raw)))
+
+
+class OneClassSVMModel(AnomalyModel):
+    """One-Class SVM for anomaly detection."""
+
+    def __init__(
+        self,
+        nu: float = 0.9,  # Very aggressive - expect up to 90% anomalies
+        kernel: str = "linear",  # Linear kernel often works better for high-dim data
+        gamma: str = "scale",
+        random_state: int | None = 42,
+    ) -> None:
+        self.name = "one-class-svm"
+        self._nu = nu
+        self._kernel = kernel
+        self._gamma = gamma
+        self._random_state = random_state
+        self._model: OneClassSVM | None = None
+        self._vectorizer = BaseVectorizer()
+
+    @property
+    def is_trained(self) -> bool:
+        return self._model is not None
+
+    def _fit_baseline(self, feature_dim: int) -> None:
+        rng = np.random.default_rng(self._random_state)
+        baseline = rng.normal(loc=0.0, scale=1.0, size=(256, feature_dim))
+        self._model = OneClassSVM(
+            nu=self._nu,
+            kernel=self._kernel,
+            gamma=self._gamma,
+        )
+        self._model.fit(baseline)
+
+    def score(self, features: Dict) -> float:
+        vector = self._vectorizer.vectorize(features)
+        if not self.is_trained:
+            # Fallback to dummy baseline if not trained
+            self._fit_baseline(feature_dim=vector.shape[0])
+        assert self._model is not None
+        raw = self._model.decision_function(vector.reshape(1, -1))[0]
+        return float(1 / (1 + np.exp(-raw)))
+
+    def fit(self, events: List[Dict]) -> None:
+        """Fit the model on real events."""
+        if not events:
+            return
+        
+        # Vectorize all events
+        vectors = [self._vectorizer.vectorize(e) for e in events]
+        X = np.array(vectors)
+        
+        self._model = OneClassSVM(
+            nu=self._nu,
+            kernel=self._kernel,
+            gamma=self._gamma,
+        )
+        self._model.fit(X)
+
+    def save(self, path: str) -> None:
+        if self._model:
+            joblib.dump(self._model, path)
+
+    def load(self, path: str) -> None:
+        try:
+            self._model = joblib.load(path)
+        except Exception:
+            self._model = None
+
+
+class EnsembleModel(AnomalyModel):
+    """Ensemble model combining multiple anomaly detectors."""
+
+    def __init__(self, random_state: int | None = 42) -> None:
+        self.name = "ensemble"
+        self._random_state = random_state
+        self._models = [
+            IsolationForestModel(random_state=random_state),
+            LOFModel(random_state=random_state),
+            OneClassSVMModel(random_state=random_state),
+        ]
+        self._vectorizer = BaseVectorizer()
+
+    @property
+    def is_trained(self) -> bool:
+        return all(model.is_trained for model in self._models)
+
+    def score(self, features: Dict) -> float:
+        """Average the scores from all models."""
+        scores = [model.score(features) for model in self._models]
+        return float(np.mean(scores))
+
+    def fit(self, events: List[Dict]) -> None:
+        """Fit all models in the ensemble."""
+        for model in self._models:
+            if hasattr(model, "fit"):
+                model.fit(events)
+
+    def save(self, path: str) -> None:
+        """Save all models in the ensemble."""
+        for i, model in enumerate(self._models):
+            if hasattr(model, "save"):
+                model.save(f"{path}_model{i}.joblib")
+
+    def load(self, path: str) -> None:
+        """Load all models in the ensemble."""
+        for i, model in enumerate(self._models):
+            if hasattr(model, "load"):
+                model.load(f"{path}_model{i}.joblib")

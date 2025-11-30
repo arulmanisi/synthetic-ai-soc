@@ -9,21 +9,17 @@ Synthetic AI SOC is a modular, open-source platform that simulates enterprise-li
 
 It allows you to demonstrate end-to-end expertise in:
 
-AI/ML for threat detection
+- AI/ML for threat detection
+- UEBA & anomaly modeling
+- LLM reasoning for SOC analysts
+- Real-time ingestion & backend architectures
+- Detection engineering & behavioral security
+- Full platform/system design
 
-UEBA & anomaly modeling
-
-LLM reasoning for SOC analysts
-
-Real-time ingestion & backend architectures
-
-Detection engineering & behavioral security
-
-Full platform/system design
-
-All data is synthetic, generated entirely by the platform’s simulation engine. No enterprise or sensitive data is used.
+All data is synthetic, generated entirely by the platform's simulation engine. No enterprise or sensitive data is used.
 
 🏗 Architecture (MVP)
+```
 [Synthetic Log Simulator] 
      → [Ingestion Layer] 
      → [Stream Processor] 
@@ -32,22 +28,33 @@ All data is synthetic, generated entirely by the platform’s simulation engine.
      → [Alert Store] 
      → [LLM Reasoner / RAG] 
      → [Web UI Dashboard]
+```
 
 ✨ Key Features (MVP)
 
-Synthetic log generator (auth, process, network, MITRE-style attack sequences)
+- **Synthetic log generator** (auth, process, network, MITRE-style attack sequences)
+- **Real-time ingestion pipeline** (Kafka or simple queue fallback)
+- **ML-based anomaly detection** (Isolation Forest with 74% recall, F1=0.53)
+- **Alerts API** (FastAPI) + SQLite/Postgres store
+- **LLM-powered explanation service** (RAG + structured incident summaries)
+- **React dashboard** for viewing alerts in real-time
+- **Model benchmarking** (Precision, Recall, F1, ROC-AUC metrics)
 
-Real-time ingestion pipeline (Kafka or simple queue fallback)
+🤖 ML Models
 
-Online UEBA-style anomaly detection (Isolation Forest + baselines)
+The platform includes multiple anomaly detection models:
 
-Alerts API (FastAPI) + Postgres store
+| Model | Status | Performance | Use Case |
+|-------|--------|-------------|----------|
+| **Isolation Forest** | ✅ Default | F1=0.53, Recall=74% | General anomaly detection |
+| LOF | Available | F1=0.00 | Experimental |
+| One-Class SVM | Available | F1=0.00 | Experimental |
+| Ensemble | Available | F1=0.00 | Experimental |
 
-LLM-powered explanation service (RAG + structured incident summaries)
-
-Lightweight React dashboard for viewing alerts
+**Isolation Forest** was selected as the default after extensive benchmarking. See `docs/model_config.md` for details.
 
 📂 Project Structure
+```
 synthetic-ai-soc/
 ├─ simulator/                 # Synthetic log & attack simulator
 ├─ ingestion/                 # Producers & connectors
@@ -55,66 +62,95 @@ synthetic-ai-soc/
 ├─ feature-store/             # Redis/Vector embeddings
 ├─ anomaly-service/           # ML scoring microservice (FastAPI)
 ├─ llm-reasoner/              # RAG, prompts, LLM explanations
-├─ alert-store/               # Postgres schema + API
+├─ alert-store/               # SQLite/Postgres schema + API
 ├─ graph-db/                  # Optional: attack path graph (v1.0+)
 ├─ ui/                        # React dashboard
 ├─ infra/                     # Docker/K8s deployment configs
-├─ docs/                      # Architecture, threat modeling
-└─ scripts/                   # Demo & tooling scripts
+├─ docs/                      # Architecture, benchmarks, model config
+└─ scripts/                   # Training, benchmarking, demo scripts
+```
 
 🧪 Quickstart (local dev)
+
+**Option 1: Docker Compose (Full Stack)**
+```bash
 docker-compose up --build
+```
 
-# In a separate terminal:
-python simulator/sim_generator.py | python ingestion/producer/send_to_kafka.py
+**Option 2: Local Development**
+```bash
+# Terminal 1: Start anomaly service
+cd anomaly-service
+python3 -m uvicorn app:app --reload --port 8001
 
-# Simple local scoring pipeline (no Kafka)
-# Terminal 1: start anomaly service (from anomaly-service/)
-#   uvicorn app:app --reload --port 8001
-# Terminal 2: run simulator and ingestion->scoring
-#   python simulator/sim_generator.py | python ingestion/ingest_and_score.py
+# Terminal 2: Run simulator and ingestion
+python3 simulator/sim_generator.py | python3 ingestion/ingest_and_score.py
 
+# Terminal 3: Start UI (requires Node.js)
+cd ui/webapp
+npm install
+npm run dev
+```
 
-Then open:
+Then open: 👉 **http://localhost:3000** to view alerts in the dashboard.
 
-👉 http://localhost:3000
+🔬 ML Training & Benchmarking
 
-to view alerts in the dashboard.
+**Train the model on real data:**
+```bash
+python3 scripts/train_model.py
+```
+
+**Run benchmarks:**
+```bash
+python3 scripts/benchmark_model.py
+```
+
+**Use alternative models:**
+```bash
+MODEL=lof python3 scripts/benchmark_model.py
+```
 
 🛣 Roadmap
-v0.1 (MVP)
 
-Simulator + ingestion
+**v0.1 (MVP)** ✅
+- ✅ Simulator + ingestion
+- ✅ Anomaly detection service (Isolation Forest)
+- ✅ Alerts API
+- ✅ ML benchmarking framework
+- ✅ React UI dashboard
+- 🚧 LLM explanations (basic placeholder)
 
-Anomaly detection service
+**v1.0**
+- Graph DB for identity + attack path reasoning
+- GNN-based behavioral detection
+- LLM enrichment playbooks
+- Policy-as-code (YAML) alert rules
 
-Alerts API
+**v2.0**
+- Plugin ecosystem
+- Advanced MITRE ATT&CK simulation
+- Dataset export for ML research
+- Cloud-native deployment templates
 
-Basic LLM explanations
+📊 Performance Metrics
 
-Minimal UI
+Current anomaly detection performance (Isolation Forest):
+- **Precision**: 41.6%
+- **Recall**: 74%
+- **F1 Score**: 0.53
+- **ROC-AUC**: 0.70
 
-v1.0
-
-Graph DB for identity + attack path reasoning
-
-GNN-based behavioral detection
-
-LLM enrichment playbooks
-
-Policy-as-code (YAML) alert rules
-
-v2.0
-
-Plugin ecosystem
-
-Advanced MITRE ATT&CK simulation
-
-Dataset export for ML research
-
-Cloud-native deployment templates
+See `docs/model_comparison.md` for detailed benchmarks.
 
 🤝 Contributing
 
 Contributions, ideas, PRs, and issues are welcome.
 This project aims to become a useful security research and learning platform for the community.
+
+📚 Documentation
+
+- `docs/architecture.md` - System architecture
+- `docs/model_config.md` - ML model configuration
+- `docs/model_comparison.md` - Model benchmarking results
+- `docs/ml_deep_dive.md` - ML implementation details
