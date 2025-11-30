@@ -11,11 +11,19 @@ APPS = ["crm", "erp", "vpn", "sshd", "s3"]
 HOSTS = ["host-1", "host-2", "host-3"]
 ACTIONS = ["login", "logout", "file_access", "upload", "download"]
 ANOMALY_RATE_DEFAULT = 0.2
+MITRE_ACTION_MAP = {
+    "login": {"tactics": ["Initial Access", "Credential Access"], "techniques": ["T1078"]},
+    "login_failed": {"tactics": ["Credential Access"], "techniques": ["T1110"]},
+    "file_access": {"tactics": ["Exfiltration"], "techniques": ["T1048"]},
+    "exfiltration": {"tactics": ["Exfiltration"], "techniques": ["T1041"]},
+    "process_exec": {"tactics": ["Execution"], "techniques": ["T1059"]},
+    "network_connect": {"tactics": ["Command and Control"], "techniques": ["T1071"]},
+}
 
 
 def generate_event() -> Dict:
     user = random.choice(USERS)
-    event = {
+    event: Dict = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "user": user,
         "host": random.choice(HOSTS),
@@ -27,6 +35,11 @@ def generate_event() -> Dict:
     # Inject anomalies more frequently to stress detection
     if random.random() < current_anomaly_rate():
         event = inject_anomaly(event)
+    # Attach MITRE hints based on action
+    mitre = MITRE_ACTION_MAP.get(event["action"], {"tactics": [], "techniques": []})
+    if mitre["tactics"] or mitre["techniques"]:
+        event["mitre_tactics"] = mitre["tactics"]
+        event["mitre_techniques"] = mitre["techniques"]
     return event
 
 
