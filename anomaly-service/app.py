@@ -7,6 +7,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from config import Settings, get_settings
 from models.base import ModelListResponse, ScoreRequest, ScoreResponse
 from pipelines.scorer import ScoringPipeline
+from pipelines.metrics import calculate_metrics
 
 
 @lru_cache
@@ -50,6 +51,37 @@ def create_app() -> FastAPI:
     ) -> dict[str, str]:
         pipeline.train(events)
         return {"status": "trained"}
+
+    @app.post("/evaluate")
+    def evaluate(
+        test_data: List[Dict],
+        pipeline: ScoringPipeline = Depends(get_pipeline),
+        settings: Settings = Depends(get_settings),
+    ) -> dict:
+        """Evaluate model on labeled test data.
+        
+        test_data: List of dicts with 'event' and 'is_anomaly' keys
+        """
+        y_true = []
+        y_pred = []
+        y_scores = []
+        
+        for item in test_data:
+            event = item["event"]
+            true_label = item["is_anomaly"]
+            
+            # Score the event
+            score_result = pipeline.score(
+                ScoreRequest(event=event),
+                default_threshold=settings.default_threshold
+            )
+            
+            y_true.append(1 if true_label else 0)
+            y_pred.append(1 if score_result.is_anomaly else 0)
+            y_scores.append(score_result.score)
+        
+        metrics = calculate_metrics(y_true, y_pred, y_scores)
+        return metrics
 
     return app
 
