@@ -12,6 +12,8 @@ This project includes simulated events and triage heuristics mapped to MITRE ATT
 | exfiltration | Exfiltration | T1041 (Exfiltration Over C2 Channel) |
 | process_exec | Execution | T1059 (Command and Scripting Interpreter) |
 | network_connect | Command and Control | T1071 (Application Layer Protocol) |
+| lateral_movement | Lateral Movement | T1021 (Remote Services) |
+| discovery_scan | Discovery | T1046 (Network Service Scanning), T1083 (File and Directory Discovery) |
 
 These hints are attached to simulator events and surfaced via triage responses.
 

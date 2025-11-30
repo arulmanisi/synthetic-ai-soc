@@ -30,6 +30,18 @@ MITRE_ACTION_MAP: Dict[str, Dict[str, List[str]]] = {
         "tactics": ["Command and Control"],
         "techniques": ["T1071 Application Layer Protocol"],
     },
+    "lateral_movement": {
+        "tactics": ["Lateral Movement"],
+        "techniques": ["T1021 Remote Services"],
+    },
+    "discovery_scan": {
+        "tactics": ["Discovery"],
+        "techniques": ["T1046 Network Service Scanning", "T1083 File and Directory Discovery"],
+    },
+    "access_denied": {
+        "tactics": ["Discovery"],
+        "techniques": ["T1083 File and Directory Discovery"],
+    },
 }
 
 
