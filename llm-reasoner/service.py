@@ -61,16 +61,21 @@ def triage_alert(request: TriageRequest):
     For MVP, this uses rule-based logic. In production, replace with actual LLM calls.
     """
     
+    mitre_hints = get_mitre_hints(request.event)
     prompt = build_triage_prompt(request.event, request.anomaly_score, request.model)
 
-    triage = _llm_triage(request.event, request.anomaly_score, prompt)
+    triage = _llm_triage(request.event, request.anomaly_score, prompt, mitre_hints)
     if triage is None:
-        triage = _mock_llm_triage(request.event, request.anomaly_score)
+        triage = _mock_llm_triage(request.event, request.anomaly_score, mitre_hints)
 
     return triage
 
 
-def _mock_llm_triage(event: Dict[str, Any], anomaly_score: float) -> TriageResponse:
+def _mock_llm_triage(
+    event: Dict[str, Any],
+    anomaly_score: float,
+    mitre_hints: Dict[str, Any],
+) -> TriageResponse:
     """
     Mock LLM triage using rule-based logic.
     Replace this with actual LLM API calls in production.
@@ -138,10 +143,9 @@ def _mock_llm_triage(event: Dict[str, Any], anomaly_score: float) -> TriageRespo
         severity = SeverityLevel.LOW
     
     # Get MITRE ATT&CK hints
-    mitre_hints = get_mitre_hints(event)
     mitre_attack = MitreAttack(
         tactics=mitre_hints.get("tactics", []),
-        techniques=mitre_hints.get("techniques", [])
+        techniques=mitre_hints.get("techniques", []),
     )
     
     # Extract indicators
@@ -168,20 +172,30 @@ def _mock_llm_triage(event: Dict[str, Any], anomaly_score: float) -> TriageRespo
     )
 
 
-def _llm_triage(event: Dict[str, Any], anomaly_score: float, prompt: str) -> Optional[TriageResponse]:
+def _llm_triage(
+    event: Dict[str, Any],
+    anomaly_score: float,
+    prompt: str,
+    mitre_hints: Dict[str, Any],
+) -> Optional[TriageResponse]:
     """Attempt to triage using an LLM; fall back to mock on error."""
     if _llm_client is None:
         return None
     try:
         raw = _llm_client.generate(prompt)
         data = json.loads(raw)
-        return _triage_from_llm_json(data, anomaly_score, event)
+        return _triage_from_llm_json(data, anomaly_score, event, mitre_hints)
     except Exception as exc:
         logger.warning("LLM triage failed, falling back to rule-based: %s", exc)
         return None
 
 
-def _triage_from_llm_json(data: Dict[str, Any], anomaly_score: float, event: Dict[str, Any]) -> TriageResponse:
+def _triage_from_llm_json(
+    data: Dict[str, Any],
+    anomaly_score: float,
+    event: Dict[str, Any],
+    mitre_hints: Dict[str, Any],
+) -> TriageResponse:
     severity_val = str(data.get("severity", "low")).lower()
     severity = {
         "critical": SeverityLevel.CRITICAL,
@@ -189,10 +203,12 @@ def _triage_from_llm_json(data: Dict[str, Any], anomaly_score: float, event: Dic
         "medium": SeverityLevel.MEDIUM,
     }.get(severity_val, SeverityLevel.LOW)
 
-    mitre_attack = MitreAttack(
-        tactics=data.get("mitre_tactics", []),
-        techniques=data.get("mitre_techniques", []),
+    # Combine LLM-provided and heuristic MITRE hints
+    tactics = list({*data.get("mitre_tactics", []), *mitre_hints.get("tactics", [])})
+    techniques = list(
+        {*data.get("mitre_techniques", []), *mitre_hints.get("techniques", [])}
     )
+    mitre_attack = MitreAttack(tactics=tactics, techniques=techniques)
 
     return TriageResponse(
         category=data.get("category", "triage"),
