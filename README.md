@@ -111,6 +111,21 @@ python3 scripts/benchmark_model.py
 MODEL=lof python3 scripts/benchmark_model.py
 ```
 
+🤖 LLM Reasoner (triage)
+```bash
+# Terminal 1: start LLM reasoner
+cd llm-reasoner
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+LLM_HOST=127.0.0.1 LLM_PORT=8002 uvicorn service:app --log-level warning
+
+# Terminal 2: health check
+TRIAGE_URL=http://127.0.0.1:8002/health python llm-reasoner/scripts/check_health.py
+
+# Terminal 2: exercise triage endpoint (rule-based or OpenAI if OPENAI_API_KEY is set)
+TRIAGE_URL=http://127.0.0.1:8002 python llm-reasoner/scripts/test_triage.py
+```
+
 🛣 Roadmap
 
 **v0.1 (MVP)** ✅
