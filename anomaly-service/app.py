@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import List, Dict
 
 from fastapi import Depends, FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -41,6 +42,14 @@ def create_app() -> FastAPI:
         settings: Settings = Depends(get_settings),
     ) -> ScoreResponse:
         return pipeline.score(request, default_threshold=settings.default_threshold)
+
+    @app.post("/train")
+    def train(
+        events: List[Dict],
+        pipeline: ScoringPipeline = Depends(get_pipeline),
+    ) -> dict[str, str]:
+        pipeline.train(events)
+        return {"status": "trained"}
 
     return app
 

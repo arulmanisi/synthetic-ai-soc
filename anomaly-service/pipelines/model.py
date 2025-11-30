@@ -1,6 +1,7 @@
 from typing import Dict, List, Protocol, Sequence
 
 import numpy as np
+import joblib
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
 
@@ -77,10 +78,37 @@ class IsolationForestModel(AnomalyModel):
     def score(self, features: Dict) -> float:
         vector = self._vectorizer.vectorize(features)
         if not self.is_trained:
+            # Fallback to dummy baseline if not trained
             self._fit_baseline(feature_dim=vector.shape[0])
         assert self._model is not None
         raw = self._model.decision_function(vector.reshape(1, -1))[0]
         return float(1 / (1 + np.exp(-raw)))
+
+    def fit(self, events: List[Dict]) -> None:
+        """Fit the model on real events."""
+        if not events:
+            return
+        
+        # Vectorize all events
+        vectors = [self._vectorizer.vectorize(e) for e in events]
+        X = np.array(vectors)
+        
+        self._model = IsolationForest(
+            contamination=self._contamination,
+            n_estimators=self._n_estimators,
+            random_state=self._random_state,
+        )
+        self._model.fit(X)
+
+    def save(self, path: str) -> None:
+        if self._model:
+            joblib.dump(self._model, path)
+
+    def load(self, path: str) -> None:
+        try:
+            self._model = joblib.load(path)
+        except Exception:
+            self._model = None
 
 
 class LOFModel(AnomalyModel):

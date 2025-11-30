@@ -1,3 +1,4 @@
+from typing import List, Dict
 from models.base import ModelListResponse, ScoreRequest, ScoreResponse
 from pipelines.model import LOFModel, IsolationForestModel
 
@@ -27,3 +28,10 @@ class ScoringPipeline:
             threshold=threshold,
             is_anomaly=score >= threshold,
         )
+
+    def train(self, events: List[Dict], model_name: str = "isolation-forest") -> None:
+        model = self._models.get(model_name)
+        if hasattr(model, "fit"):
+            model.fit(events)
+            if hasattr(model, "save"):
+                model.save(f"{model_name}.joblib")
