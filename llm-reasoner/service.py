@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from config import get_settings
 from models.triage import MitreAttack, SeverityLevel, TriageRequest, TriageResponse
 from prompts.triage_prompt import build_triage_prompt, get_mitre_hints
 from llm_client import LLMClient, build_llm_client
@@ -207,3 +208,16 @@ def _triage_from_llm_json(data: Dict[str, Any], anomaly_score: float, event: Dic
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    settings = get_settings()
+    uvicorn.run(
+        "service:app",
+        host=settings.host,
+        port=settings.port,
+        log_level=settings.log_level.lower(),
+        reload=False,
+    )
