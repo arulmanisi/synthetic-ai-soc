@@ -1,12 +1,16 @@
-import sys
-import os
 import json
+import os
+import sys
+from collections import defaultdict
+from typing import Dict, List
+
 import requests
 
 # Add project root to path to import simulator
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from simulator.sim_generator import generate_event, inject_anomaly
+from mitre.mapping import mitre_hints_for_action
 
 
 def generate_test_dataset(n_normal=100, n_anomaly=50, model_name=None):
@@ -35,6 +39,35 @@ def generate_test_dataset(n_normal=100, n_anomaly=50, model_name=None):
     return test_data
 
 
+def per_technique_metrics(test_data: List[Dict], predictions: List[Dict]) -> Dict[str, Dict[str, float]]:
+    """Compute precision/recall per technique based on MITRE tags present in events."""
+    buckets: Dict[str, Dict[str, int]] = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
+    for item, pred in zip(test_data, predictions):
+        event = item["event"]
+        true_label = item["is_anomaly"]
+        predicted_label = pred.get("is_anomaly", False)
+        techniques = event.get("mitre_techniques") or mitre_hints_for_action(event.get("action", "")).get("techniques", [])
+        if not techniques:
+            continue
+        for tech in techniques:
+            if predicted_label and true_label:
+                buckets[tech]["tp"] += 1
+            elif predicted_label and not true_label:
+                buckets[tech]["fp"] += 1
+            elif (not predicted_label) and true_label:
+                buckets[tech]["fn"] += 1
+
+    metrics: Dict[str, Dict[str, float]] = {}
+    for tech, counts in buckets.items():
+        tp = counts["tp"]
+        fp = counts["fp"]
+        fn = counts["fn"]
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        metrics[tech] = {"precision": precision, "recall": recall}
+    return metrics
+
+
 def benchmark_model():
     print("Generating test dataset...")
     model_name = os.getenv("MODEL", "isolation-forest")
@@ -46,6 +79,7 @@ def benchmark_model():
         response = requests.post("http://localhost:8001/evaluate", json=test_data)
         if response.status_code == 200:
             metrics = response.json()
+            predictions = metrics.get("predictions", [])
             
             print("\n" + "="*50)
             print("BENCHMARK RESULTS")
@@ -63,6 +97,13 @@ def benchmark_model():
             print(f"  False Negatives: {cm['false_negatives']}")
             print(f"  True Positives:  {cm['true_positives']}")
             print("="*50)
+
+            if predictions:
+                per_tech = per_technique_metrics(test_data, predictions)
+                if per_tech:
+                    print("\nPer-technique metrics:")
+                    for tech, vals in per_tech.items():
+                        print(f"  {tech}: precision={vals['precision']:.2f}, recall={vals['recall']:.2f}")
         else:
             print(f"Evaluation failed: {response.status_code}")
             print(response.text)

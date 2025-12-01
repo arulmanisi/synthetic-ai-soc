@@ -1,4 +1,14 @@
 from typing import List, Dict
+try:
+    from mitre.mapping import mitre_hints_for_action
+except ModuleNotFoundError:
+    # Ensure relative import fallback when mitre is not on sys.path
+    import sys
+    from pathlib import Path
+    ROOT = Path(__file__).resolve().parents[2] / "mitre"
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from mitre.mapping import mitre_hints_for_action
 from models.base import ModelListResponse, ScoreRequest, ScoreResponse
 from pipelines.model import LOFModel, IsolationForestModel, OneClassSVMModel, EnsembleModel
 
@@ -40,11 +50,14 @@ class ScoringPipeline:
         threshold = request.threshold if request.threshold is not None else default_threshold
         scorer = self._get_model(model_name)
         score = scorer.score(request.event)
+        mitre = mitre_hints_for_action(request.event.get("action", ""))
         return ScoreResponse(
             score=score,
             model=model_name,
             threshold=threshold,
             is_anomaly=score >= threshold,
+            mitre_tactics=mitre.get("tactics", []),
+            mitre_techniques=mitre.get("techniques", []),
         )
 
     def train(self, events: List[Dict], model_name: str = "isolation-forest") -> None:

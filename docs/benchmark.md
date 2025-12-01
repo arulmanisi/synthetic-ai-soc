@@ -18,6 +18,12 @@ Results (2025-11-29, local IsolationForest baseline):
 - ROC-AUC: 0.566
 - Confusion matrix: TN=34, FP=59, FN=15, TP=35
 
+Per-technique metrics (heuristic MITRE tags) — run `scripts/benchmark_model.py` to refresh:
+- T1041/T1048 Exfiltration: TBD
+- T1110 Brute Force: TBD
+- T1071 C2: TBD
+- T1021 Lateral Movement: TBD
+
 Notes:
 - Benchmark uses synthetic events from `simulator/sim_generator.py` and the `/evaluate` endpoint.
 - Threshold is currently 0.5 with contamination at 0.2; tune these or train/load a model to improve precision.***

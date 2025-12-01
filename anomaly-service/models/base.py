@@ -27,6 +27,10 @@ class ScoreResponse(BaseModel):
     model: str = Field(..., description="Model that produced the score.")
     threshold: float = Field(..., ge=0.0, le=1.0, description="Decision threshold.")
     is_anomaly: bool = Field(..., description="True when score >= threshold.")
+    mitre_tactics: List[str] = Field(default_factory=list, description="MITRE tactics hints.")
+    mitre_techniques: List[str] = Field(
+        default_factory=list, description="MITRE techniques hints."
+    )
 
 
 class ModelListResponse(BaseModel):
