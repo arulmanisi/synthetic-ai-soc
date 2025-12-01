@@ -1,13 +1,12 @@
 import json
-import sqlite3
+import os
 import sys
-from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 import httpx
 
-ANOMALY_URL = "http://localhost:8001/score"
-DB_PATH = Path(__file__).resolve().parent / "anomalies.db"
+ANOMALY_URL = os.getenv("ANOMALY_URL", "http://localhost:8001/score")
+ALERT_STORE_URL = os.getenv("ALERT_STORE_URL", "http://localhost:8003/alerts")
 
 
 def score_event(event: Dict, client: httpx.Client) -> Dict:
@@ -16,44 +15,20 @@ def score_event(event: Dict, client: httpx.Client) -> Dict:
     return resp.json()
 
 
-def init_db(conn: sqlite3.Connection) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS anomalies (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            event_json TEXT NOT NULL,
-            score REAL NOT NULL,
-            threshold REAL NOT NULL,
-            is_anomaly INTEGER NOT NULL,
-            model TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-    conn.commit()
-
-
-def store_result(conn: sqlite3.Connection, event: Dict, score: Dict) -> None:
-    conn.execute(
-        """
-        INSERT INTO anomalies (event_json, score, threshold, is_anomaly, model)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            json.dumps(event),
-            float(score.get("score", 0.0)),
-            float(score.get("threshold", 0.0)),
-            1 if score.get("is_anomaly") else 0,
-            score.get("model", "unknown"),
-        ),
-    )
-    conn.commit()
+def send_to_alert_store(event: Dict, score: Dict, client: httpx.Client) -> None:
+    payload = {
+        "event": event,
+        "score": score.get("score"),
+        "threshold": score.get("threshold"),
+        "is_anomaly": score.get("is_anomaly"),
+        "model": score.get("model", "unknown"),
+        "mitre_tactics": event.get("mitre_tactics", []),
+        "mitre_techniques": event.get("mitre_techniques", []),
+    }
+    client.post(ALERT_STORE_URL, json=payload, timeout=5).raise_for_status()
 
 
 def main() -> None:
-    conn = sqlite3.connect(DB_PATH)
-    init_db(conn)
-
     with httpx.Client(timeout=5.0) as client:
         for line in sys.stdin:
             line = line.strip()
@@ -66,13 +41,11 @@ def main() -> None:
                 continue
             try:
                 result = score_event(event, client)
-                store_result(conn, event, result)
+                send_to_alert_store(event, result, client)
                 sys.stdout.write(json.dumps({"event": event, "score": result}) + "\n")
                 sys.stdout.flush()
             except Exception as exc:
-                sys.stderr.write(f"Error scoring event: {exc}\n")
-
-    conn.close()
+                sys.stderr.write(f"Error scoring or storing event: {exc}\n")
 
 
 if __name__ == "__main__":
