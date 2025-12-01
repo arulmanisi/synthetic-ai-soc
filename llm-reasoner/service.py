@@ -61,7 +61,7 @@ def triage_alert(request: TriageRequest):
     For MVP, this uses rule-based logic. In production, replace with actual LLM calls.
     """
     
-    mitre_hints = get_mitre_hints(request.event)
+    mitre_hints = merge_mitre_hints(request.event)
     prompt = build_triage_prompt(request.event, request.anomaly_score, request.model)
 
     triage = _llm_triage(request.event, request.anomaly_score, prompt, mitre_hints)
@@ -161,11 +161,16 @@ def _mock_llm_triage(
         if isinstance(value, (int, float)) and key not in indicators:
             indicators[key] = value
     
+    rationale = []
+    if mitre_attack.tactics or mitre_attack.techniques:
+        rationale.append(f"Mapped via heuristics from action '{action}'.")
+
     return TriageResponse(
         category=category,
         severity=severity,
         confidence=min(anomaly_score + 0.1, 1.0),  # Slightly boost confidence
         mitre_attack=mitre_attack,
+        mitre_rationale=rationale,
         summary=summary,
         indicators=indicators,
         recommended_actions=actions
@@ -208,6 +213,10 @@ def _triage_from_llm_json(
     techniques = list(
         {*data.get("mitre_techniques", []), *mitre_hints.get("techniques", [])}
     )
+    rationale = data.get("mitre_rationale") or []
+    if not rationale and (tactics or techniques):
+        rationale = [f"LLM + heuristics based on action '{event.get('action', '')}'."]
+
     mitre_attack = MitreAttack(tactics=tactics, techniques=techniques)
 
     return TriageResponse(
@@ -215,10 +224,21 @@ def _triage_from_llm_json(
         severity=severity,
         confidence=float(data.get("confidence", anomaly_score)),
         mitre_attack=mitre_attack,
+        mitre_rationale=rationale,
         summary=data.get("summary", "LLM triage result"),
         indicators=data.get("indicators", event),
         recommended_actions=data.get("recommended_actions", []),
     )
+
+
+def merge_mitre_hints(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Combine MITRE hints from event fields and heuristic mapping."""
+    event_tactics = event.get("mitre_tactics", [])
+    event_techniques = event.get("mitre_techniques", [])
+    hints = get_mitre_hints(event)
+    tactics = list({*event_tactics, *hints.get("tactics", [])})
+    techniques = list({*event_techniques, *hints.get("techniques", [])})
+    return {"tactics": tactics, "techniques": techniques}
 
 
 @app.get("/health")
