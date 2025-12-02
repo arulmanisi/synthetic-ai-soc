@@ -126,6 +126,15 @@ TRIAGE_URL=http://127.0.0.1:8002/health python llm-reasoner/scripts/check_health
 TRIAGE_URL=http://127.0.0.1:8002 python llm-reasoner/scripts/test_triage.py
 ```
 
+🔍 Alert Viewer
+```bash
+# Serve the simple alert viewer page
+./scripts/serve_alert_viewer.sh 8000
+
+# Open in browser (adjust Alert Store URL as needed)
+# http://localhost:8000/alert_viewer.html?alertStoreUrl=http://localhost:8003/alerts
+```
+
 🛣 Roadmap
 
 **v0.1 (MVP)** ✅
