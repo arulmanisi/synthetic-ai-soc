@@ -65,6 +65,7 @@ def create_app() -> FastAPI:
         y_true = []
         y_pred = []
         y_scores = []
+        predictions: List[Dict] = []
 
         for item in test_data:
             event = item["event"]
@@ -79,8 +80,20 @@ def create_app() -> FastAPI:
             y_true.append(1 if true_label else 0)
             y_pred.append(1 if score_result.is_anomaly else 0)
             y_scores.append(score_result.score)
+            predictions.append(
+                {
+                    "event": event,
+                    "is_anomaly": score_result.is_anomaly,
+                    "score": score_result.score,
+                    "threshold": score_result.threshold,
+                    "model": score_result.model,
+                    "mitre_tactics": score_result.mitre_tactics,
+                    "mitre_techniques": score_result.mitre_techniques,
+                }
+            )
 
         metrics = calculate_metrics(y_true, y_pred, y_scores)
+        metrics["predictions"] = predictions
         return metrics
 
     return app
