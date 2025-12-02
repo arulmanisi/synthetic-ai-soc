@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Alerts - Synthetic AI SOC</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #0c1220; color: #e9edf5; }
+    h1 { margin-bottom: 0.2em; }
+    .meta { color: #9ab; margin-bottom: 1em; }
+    .alert { border: 1px solid #334; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #121a2a; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 6px; background: #24385c; color: #cfd7e8; }
+    .mitre { color: #8fd6ff; }
+    pre { background: #0b1424; padding: 10px; border-radius: 6px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Alerts</h1>
+  <div class="meta">Source: <span id="alertStoreUrl">http://localhost:8003/alerts</span></div>
+  <div id="alerts"></div>
+
+  <script>
+    const ALERT_STORE_URL = new URLSearchParams(window.location.search).get("alertStoreUrl") || "http://localhost:8003/alerts";
+    document.getElementById("alertStoreUrl").innerText = ALERT_STORE_URL;
+
+    async function fetchAlerts() {
+      const resp = await fetch(ALERT_STORE_URL);
+      if (!resp.ok) throw new Error("Failed to fetch alerts");
+      return resp.json();
+    }
+
+    function renderAlerts(alerts) {
+      const container = document.getElementById("alerts");
+      container.innerHTML = "";
+      alerts.forEach(alert => {
+        const div = document.createElement("div");
+        div.className = "alert";
+        const mitreTactics = (alert.mitre_tactics || []).join(", ") || "none";
+        const mitreTechniques = (alert.mitre_techniques || []).join(", ") || "none";
+        div.innerHTML = `
+          <div>
+            <span class="badge">ID ${alert.id}</span>
+            <span class="badge">Model ${alert.model}</span>
+            <span class="badge">Score ${alert.score.toFixed(3)}</span>
+            <span class="badge">${alert.is_anomaly ? "Anomaly" : "Normal"}</span>
+          </div>
+          <div class="mitre">MITRE Tactics: ${mitreTactics}</div>
+          <div class="mitre">MITRE Techniques: ${mitreTechniques}</div>
+          <pre>${JSON.stringify(alert.event, null, 2)}</pre>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    fetchAlerts()
+      .then(renderAlerts)
+      .catch(err => {
+        document.getElementById("alerts").innerText = "Error loading alerts: " + err;
+      });
+  </script>
+</body>
+</html>
