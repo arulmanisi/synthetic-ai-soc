@@ -16,6 +16,26 @@
 <body>
   <h1>Alerts</h1>
   <div class="meta">Source: <span id="alertStoreUrl">http://localhost:8003/alerts</span></div>
+
+  <div style="margin-bottom:12px;">
+    <label>Severity:
+      <select id="severity">
+        <option value="">Any</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="critical">Critical</option>
+      </select>
+    </label>
+    <label style="margin-left:10px;">Technique:
+      <input id="technique" type="text" placeholder="e.g., T1110" />
+    </label>
+    <label style="margin-left:10px;">Model:
+      <input id="model" type="text" placeholder="isolation-forest" />
+    </label>
+    <button onclick="loadAlerts()">Refresh</button>
+  </div>
+
   <div id="alerts"></div>
 
   <script>
@@ -23,7 +43,15 @@
     document.getElementById("alertStoreUrl").innerText = ALERT_STORE_URL;
 
     async function fetchAlerts() {
-      const resp = await fetch(ALERT_STORE_URL);
+      const severity = document.getElementById("severity").value;
+      const technique = document.getElementById("technique").value.trim();
+      const model = document.getElementById("model").value.trim();
+      const url = new URL(ALERT_STORE_URL);
+      url.searchParams.set("limit", "50");
+      if (severity) url.searchParams.set("severity", severity);
+      if (technique) url.searchParams.set("technique", technique);
+      if (model) url.searchParams.set("model", model);
+      const resp = await fetch(url.toString());
       if (!resp.ok) throw new Error("Failed to fetch alerts");
       return resp.json();
     }
@@ -51,11 +79,15 @@
       });
     }
 
-    fetchAlerts()
-      .then(renderAlerts)
-      .catch(err => {
-        document.getElementById("alerts").innerText = "Error loading alerts: " + err;
-      });
+    function loadAlerts() {
+      fetchAlerts()
+        .then(renderAlerts)
+        .catch(err => {
+          document.getElementById("alerts").innerText = "Error loading alerts: " + err;
+        });
+    }
+
+    loadAlerts();
   </script>
 </body>
 </html>
